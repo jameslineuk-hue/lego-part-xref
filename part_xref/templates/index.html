@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LEGO Part Cross-Reference</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #52606d;
+      --accent: #d0021b;
+      --border: #d9e2ec;
+      --error: #b00020;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1720;
+        --card: #1b2430;
+        --text: #f0f4f8;
+        --muted: #9fb3c8;
+        --border: #334155;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 2rem 1rem 3rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.75rem;
+    }
+
+    p.lead {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 8px 24px rgba(15, 23, 32, 0.06);
+    }
+
+    form {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      width: 100%;
+      font-weight: 600;
+    }
+
+    input[type="text"] {
+      flex: 1 1 220px;
+      min-width: 0;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      background: transparent;
+      color: inherit;
+    }
+
+    button {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .status {
+      min-height: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--muted);
+    }
+
+    .status.error {
+      color: var(--error);
+      font-weight: 600;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: -0.15rem;
+      margin-right: 0.35rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    pre {
+      margin: 0;
+      padding: 1rem;
+      border-radius: 8px;
+      background: rgba(127, 127, 127, 0.08);
+      overflow-x: auto;
+      font-size: 0.95rem;
+    }
+
+    .results {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .results-header {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .result-block {
+      padding: 1rem;
+      border-radius: 8px;
+      background: rgba(127, 127, 127, 0.08);
+      border: 1px solid var(--border);
+    }
+
+    .result-block.primary {
+      background: rgba(208, 2, 27, 0.08);
+      border-color: rgba(208, 2, 27, 0.2);
+    }
+
+    .result-block .label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .result-block .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .source-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .source-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .source-list li:first-child {
+      border-top: none;
+    }
+
+    .source-name {
+      color: var(--muted);
+    }
+
+    .source-value {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    details summary {
+      cursor: pointer;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>LEGO Part Cross-Reference</h1>
+      <p class="lead">Look up equivalent part numbers across Brick Architect, LEGO Pick a Brick, BrickLink, Rebrickable, Brickset, and LDraw.</p>
+    </header>
+
+    <div class="card">
+      <form id="lookup-form" autocomplete="off">
+        <label for="part-number">LEGO part number</label>
+        <input
+          id="part-number"
+          name="part_number"
+          type="text"
+          inputmode="text"
+          placeholder="e.g. 3001"
+          required
+        >
+        <button type="submit" id="submit-btn">Look up</button>
+      </form>
+
+      <div id="status" class="status" aria-live="polite"></div>
+      <div id="results" class="results hidden"></div>
+      <details id="raw-json" class="hidden">
+        <summary>View raw JSON</summary>
+        <pre id="result"></pre>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("lookup-form");
+    const partInput = document.getElementById("part-number");
+    const statusEl = document.getElementById("status");
+    const resultsEl = document.getElementById("results");
+    const rawJsonEl = document.getElementById("raw-json");
+    const resultEl = document.getElementById("result");
+    const submitBtn = document.getElementById("submit-btn");
+
+    const SOURCE_LABELS = {
+      brick_architect: "Brick Architect",
+      lego_pick_a_brick: "LEGO Pick a Brick",
+      bricklink: "BrickLink",
+      rebrickable: "Rebrickable",
+      brickset: "Brickset",
+      ldraw: "LDraw",
+    };
+
+    function formatSourceLabel(key) {
+      return SOURCE_LABELS[key] || key.replaceAll("_", " ");
+    }
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      if (isLoading) {
+        statusEl.className = "status";
+        statusEl.innerHTML = '<span class="spinner" aria-hidden="true"></span>Looking up part number...';
+        resultsEl.classList.add("hidden");
+        resultsEl.innerHTML = "";
+        rawJsonEl.classList.add("hidden");
+        resultEl.textContent = "";
+      } else if (!statusEl.classList.contains("error")) {
+        statusEl.textContent = "";
+      }
+    }
+
+    function showError(message) {
+      statusEl.className = "status error";
+      statusEl.textContent = message;
+      resultsEl.classList.add("hidden");
+      resultsEl.innerHTML = "";
+      rawJsonEl.classList.add("hidden");
+      resultEl.textContent = "";
+    }
+
+    function showResult(data) {
+      const alternatives = data.alternative_part_numbers || {};
+      const searchedNumber = data.part_number;
+      const brickArchitectNumber =
+        data.brick_architect_part_number ||
+        alternatives.brick_architect ||
+        searchedNumber;
+      const converted = brickArchitectNumber.toLowerCase() !== searchedNumber.toLowerCase();
+
+      statusEl.className = "status";
+      if (data.error) {
+        statusEl.textContent = `Note: ${data.error}`;
+      } else if (converted) {
+        statusEl.textContent = `Brick Architect maps ${searchedNumber} to part ${brickArchitectNumber}.`;
+      } else {
+        statusEl.textContent = "Lookup complete.";
+      }
+
+      const otherSources = Object.entries(alternatives).filter(([key]) => key !== "brick_architect");
+      const sourceItems = otherSources.length
+        ? otherSources.map(([key, value]) => `
+            <li>
+              <span class="source-name">${formatSourceLabel(key)}</span>
+              <span class="source-value">${value}</span>
+            </li>
+          `).join("")
+        : `<li><span class="source-name">No external source numbers found.</span><span class="source-value"></span></li>`;
+
+      resultsEl.innerHTML = `
+        <div class="results-header">
+          <div class="result-block">
+            <span class="label">Searched part number</span>
+            <div class="value">${searchedNumber}</div>
+          </div>
+          <div class="result-block primary">
+            <span class="label">Brick Architect part number</span>
+            <div class="value">${brickArchitectNumber}</div>
+          </div>
+        </div>
+        <ul class="source-list" aria-label="Other source part numbers">
+          ${sourceItems}
+        </ul>
+      `;
+      resultsEl.classList.remove("hidden");
+
+      resultEl.textContent = JSON.stringify(data, null, 2);
+      rawJsonEl.classList.remove("hidden");
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const partNumber = partInput.value.trim();
+      if (!partNumber) {
+        showError("Please enter a part number.");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/lego/part-number/${encodeURIComponent(partNumber)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          const message = data?.detail?.error || data?.error || `Request failed (${response.status}).`;
+          showError(message);
+          if (data?.detail) {
+            resultEl.textContent = JSON.stringify(data.detail, null, 2);
+            rawJsonEl.classList.remove("hidden");
+          }
+          return;
+        }
+
+        showResult(data);
+      } catch (error) {
+        showError("Network error while contacting the API.");
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
