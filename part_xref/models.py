@@ -52,3 +52,27 @@ class PartCrossReferenceResponse(BaseModel):
             alternative_part_numbers=ordered,
             error=error,
         )
+
+
+class XrefCountResponse(BaseModel):
+    """Number of part cross-reference entries stored in the database."""
+
+    count: int
+
+
+class SaveXrefResponse(BaseModel):
+    """Response after attempting to save a xref lookup result."""
+
+    part_number: str
+    saved: bool
+    message: str
+
+
+class CsvImportResult(BaseModel):
+    """Summary of a bulk CSV import operation."""
+
+    total: int
+    imported: int
+    skipped_existing: int
+    not_found: list[str] = Field(default_factory=list)
+    failed: list[str] = Field(default_factory=list)

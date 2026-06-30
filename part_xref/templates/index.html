@@ -58,6 +58,17 @@
       color: var(--muted);
     }
 
+    .xref-count {
+      margin: 0.75rem 0 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .xref-count strong {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -103,6 +114,70 @@
     button:disabled {
       opacity: 0.65;
       cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    button.secondary:disabled {
+      opacity: 0.5;
+    }
+
+    .section-title {
+      margin: 0 0 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.5rem 0;
+    }
+
+    input[type="file"] {
+      flex: 1 1 220px;
+      min-width: 0;
+      padding: 0.5rem 0;
+      font-size: 0.95rem;
+      color: inherit;
+    }
+
+    .import-summary {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .import-summary li {
+      margin-bottom: 0.35rem;
+    }
+
+    .import-issues {
+      margin-top: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      background: rgba(127, 127, 127, 0.08);
+      border: 1px solid var(--border);
+    }
+
+    .import-issues h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .import-issues ul {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
     }
 
     .status {
@@ -224,6 +299,9 @@
     <header>
       <h1>LEGO Part Cross-Reference</h1>
       <p class="lead">Look up equivalent part numbers across Brick Architect, LEGO Pick a Brick, BrickLink, Rebrickable, Brickset, and LDraw.</p>
+      <p id="xref-count" class="xref-count" aria-live="polite">
+        <strong>{{ xref_count }}</strong> part{{ "s" if xref_count != 1 else "" }} saved in xref database
+      </p>
     </header>
 
     <div class="card">
@@ -247,6 +325,20 @@
         <pre id="result"></pre>
       </details>
     </div>
+
+    <div class="card" style="margin-top: 1.5rem;">
+      <h2 class="section-title">Import from CSV</h2>
+      <p class="lead" style="margin-bottom: 1rem;">
+        Upload a CSV with one part number per row. Existing entries are skipped.
+      </p>
+      <form id="import-form" autocomplete="off">
+        <label for="csv-file">Part numbers CSV</label>
+        <input id="csv-file" name="file" type="file" accept=".csv,text/csv" required>
+        <button type="submit" id="import-btn">Import</button>
+      </form>
+      <div id="import-status" class="status" aria-live="polite"></div>
+      <div id="import-results" class="hidden"></div>
+    </div>
   </div>
 
   <script>
@@ -257,6 +349,30 @@
     const rawJsonEl = document.getElementById("raw-json");
     const resultEl = document.getElementById("result");
     const submitBtn = document.getElementById("submit-btn");
+    const importForm = document.getElementById("import-form");
+    const csvFileInput = document.getElementById("csv-file");
+    const importBtn = document.getElementById("import-btn");
+    const importStatusEl = document.getElementById("import-status");
+    const importResultsEl = document.getElementById("import-results");
+    const xrefCountEl = document.getElementById("xref-count");
+
+    function formatXrefCount(count) {
+      const label = count === 1 ? "part" : "parts";
+      return `<strong>${count.toLocaleString()}</strong> ${label} saved in xref database`;
+    }
+
+    async function refreshXrefCount() {
+      try {
+        const response = await fetch("/api/lego/part-xrefs/count");
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        xrefCountEl.innerHTML = formatXrefCount(data.count);
+      } catch (error) {
+        // Keep the server-rendered count on failure.
+      }
+    }
 
     const SOURCE_LABELS = {
       brick_architect: "Brick Architect",
@@ -336,11 +452,101 @@
         <ul class="source-list" aria-label="Other source part numbers">
           ${sourceItems}
         </ul>
+        <div class="actions-row">
+          <button type="button" id="save-xref-btn" class="secondary">Save xref to database</button>
+        </div>
       `;
       resultsEl.classList.remove("hidden");
 
+      const saveBtn = document.getElementById("save-xref-btn");
+      const canSave = !data.error || Object.keys(alternatives).length > 0;
+      saveBtn.disabled = !canSave;
+      saveBtn.addEventListener("click", () => saveCurrentXref(data.part_number, saveBtn));
+
       resultEl.textContent = JSON.stringify(data, null, 2);
       rawJsonEl.classList.remove("hidden");
+    }
+
+    async function saveCurrentXref(partNumber, button) {
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Saving...";
+      try {
+        const response = await fetch(
+          `/api/lego/part-xrefs/${encodeURIComponent(partNumber)}`,
+          { method: "POST" }
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          statusEl.className = "status error";
+          statusEl.textContent = data?.detail || `Save failed (${response.status}).`;
+          button.disabled = false;
+          button.textContent = originalText;
+          return;
+        }
+
+        statusEl.className = "status";
+        statusEl.textContent = data.message;
+        if (data.saved) {
+          button.textContent = "Saved";
+          refreshXrefCount();
+        } else {
+          button.textContent = originalText;
+          button.disabled = false;
+        }
+      } catch (error) {
+        statusEl.className = "status error";
+        statusEl.textContent = "Network error while saving xref.";
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+
+    function setImportLoading(isLoading) {
+      importBtn.disabled = isLoading;
+      csvFileInput.disabled = isLoading;
+      if (isLoading) {
+        importStatusEl.className = "status";
+        importStatusEl.innerHTML =
+          '<span class="spinner" aria-hidden="true"></span>Importing part numbers...';
+        importResultsEl.classList.add("hidden");
+        importResultsEl.innerHTML = "";
+      }
+    }
+
+    function showImportResult(data) {
+      importStatusEl.className = "status";
+      importStatusEl.textContent = "Import complete.";
+
+      const issueSections = [];
+      if (data.not_found?.length) {
+        issueSections.push(`
+          <div class="import-issues">
+            <h3>Not found (${data.not_found.length})</h3>
+            <ul>${data.not_found.map((n) => `<li>${n}</li>`).join("")}</ul>
+          </div>
+        `);
+      }
+      if (data.failed?.length) {
+        issueSections.push(`
+          <div class="import-issues">
+            <h3>Failed (${data.failed.length})</h3>
+            <ul>${data.failed.map((n) => `<li>${n}</li>`).join("")}</ul>
+          </div>
+        `);
+      }
+
+      importResultsEl.innerHTML = `
+        <ul class="import-summary">
+          <li><strong>Total:</strong> ${data.total}</li>
+          <li><strong>Imported:</strong> ${data.imported}</li>
+          <li><strong>Skipped (already exists):</strong> ${data.skipped_existing}</li>
+          <li><strong>Not found:</strong> ${data.not_found?.length || 0}</li>
+          <li><strong>Failed:</strong> ${data.failed?.length || 0}</li>
+        </ul>
+        ${issueSections.join("")}
+      `;
+      importResultsEl.classList.remove("hidden");
     }
 
     form.addEventListener("submit", async (event) => {
@@ -371,6 +577,41 @@
         showError("Network error while contacting the API.");
       } finally {
         setLoading(false);
+      }
+    });
+
+    importForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const file = csvFileInput.files?.[0];
+      if (!file) {
+        importStatusEl.className = "status error";
+        importStatusEl.textContent = "Please choose a CSV file.";
+        return;
+      }
+
+      setImportLoading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/lego/part-xrefs/import", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          importStatusEl.className = "status error";
+          importStatusEl.textContent = data?.detail || `Import failed (${response.status}).`;
+          return;
+        }
+
+        showImportResult(data);
+        refreshXrefCount();
+      } catch (error) {
+        importStatusEl.className = "status error";
+        importStatusEl.textContent = "Network error during import.";
+      } finally {
+        setImportLoading(false);
       }
     });
   </script>

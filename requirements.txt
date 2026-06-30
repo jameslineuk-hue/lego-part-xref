@@ -6,4 +6,6 @@ lxml
 pydantic
 jinja2
 python-dotenv
+psycopg[binary]
+python-multipart
 

@@ -47,5 +47,14 @@ CACHE_ENABLED = os.environ.get("PART_XREF_CACHE_ENABLED", "1").lower() in {
 CACHE_DB_PATH = Path(os.environ.get("PART_XREF_CACHE_DB", str(DEFAULT_CACHE_DB)))
 CACHE_TTL_SECONDS = int(os.environ.get("PART_XREF_CACHE_TTL", str(60 * 60 * 24)))
 
+# PostgreSQL (LegoHub persistent xref storage)
+POSTGRES_HOST = os.environ.get(
+    "POSTGRES_HOST", "andrews-mac-mini.coywolf-banded.ts.net"
+)
+POSTGRES_PORT = int(os.environ.get("POSTGRES_PORT", "5432"))
+POSTGRES_DB = os.environ.get("POSTGRES_DB", "legohub_mini")
+POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "Birmingham.96")
+
 # Logging
 LOG_LEVEL = os.environ.get("PART_XREF_LOG_LEVEL", "INFO").upper()
