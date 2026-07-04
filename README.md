@@ -15,11 +15,52 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+Or install as a package (creates a `part-xref` command):
+
+```bash
+pip install .
+```
+
 Optional: copy `.env.example` to `.env` and adjust settings.
 
 ```bash
 cp .env.example .env
 ```
+
+## Install on another Mac (e.g. Mac Mini)
+
+Build a tarball on your dev machine:
+
+```bash
+./scripts/build-package.sh
+```
+
+Copy to the target Mac and install:
+
+```bash
+scp dist/lego-part-xref-1.0.0.tar.gz your-mac-mini:~/
+ssh your-mac-mini
+tar -xzf lego-part-xref-1.0.0.tar.gz
+cd lego-part-xref-1.0.0
+./install/install.sh --service
+```
+
+The installer:
+
+- Creates a virtual environment and installs the app under `~/lego-part-xref` (override with `--dir PATH`)
+- Copies `.env.example` to `.env` if `.env` is missing (edit PostgreSQL and other settings before relying on it)
+- Runs the PostgreSQL schema migration when reachable
+- With `--service`, registers a launchd user agent so the API starts at login
+
+Useful options:
+
+```bash
+./install/install.sh --dir /opt/lego-part-xref --service   # custom location + auto-start
+./install/install.sh --no-migrate                            # skip DB migration
+./install/uninstall.sh --remove-files                        # stop service and remove install dir
+```
+
+Service logs: `~/Library/Logs/lego-part-xref/`
 
 ## Run
 

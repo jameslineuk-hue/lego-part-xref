@@ -16,6 +16,17 @@ class AlternativePartNumbers(BaseModel):
     ldraw: Optional[str] = None
 
 
+# Maps alternative_part_numbers JSON keys to part_xrefs table columns.
+ALTERNATIVE_SOURCE_COLUMNS: dict[str, str] = {
+    "brick_architect": "brick_architect_part_number",
+    "lego_pick_a_brick": "lego_pick_a_brick_part_number",
+    "bricklink": "bricklink_part_number",
+    "rebrickable": "rebrickable_part_number",
+    "brickset": "brickset_part_number",
+    "ldraw": "ldraw_part_number",
+}
+
+
 class PartCrossReferenceResponse(BaseModel):
     """API response for a part number lookup."""
 

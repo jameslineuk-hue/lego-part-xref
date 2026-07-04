@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lego-part-xref"
+version = "1.0.0"
+description = "LEGO part number cross-reference API"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "requests",
+    "beautifulsoup4",
+    "lxml",
+    "pydantic",
+    "jinja2",
+    "python-dotenv",
+    "psycopg[binary]",
+    "python-multipart",
+]
+
+[project.scripts]
+part-xref = "part_xref.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["part_xref*"]
+
+[tool.setuptools.package-data]
+part_xref = ["templates/**/*"]

@@ -17,8 +17,55 @@ from part_xref.config import (
     POSTGRES_PORT,
     POSTGRES_USER,
 )
+from part_xref.models import ALTERNATIVE_SOURCE_COLUMNS
 
 logger = logging.getLogger(__name__)
+
+_SOURCE_COLUMN_SQL = ",\n                    ".join(
+    f"{column} VARCHAR(64)" for column in ALTERNATIVE_SOURCE_COLUMNS.values()
+)
+
+
+def source_column_values(
+    *,
+    brick_architect_part_number: Optional[str],
+    alternative_part_numbers: dict[str, str],
+) -> dict[str, Optional[str]]:
+    """Resolve per-source column values from lookup result fields."""
+    values = {
+        column: alternative_part_numbers.get(source_key)
+        for source_key, column in ALTERNATIVE_SOURCE_COLUMNS.items()
+    }
+    values["brick_architect_part_number"] = (
+        brick_architect_part_number or values["brick_architect_part_number"]
+    )
+    return values
+
+
+def migrate_source_columns(conn: psycopg.Connection) -> None:
+    """Add per-source columns and backfill them from the JSON blob."""
+    for column in ALTERNATIVE_SOURCE_COLUMNS.values():
+        conn.execute(
+            f"ALTER TABLE part_xrefs ADD COLUMN IF NOT EXISTS {column} VARCHAR(64)"
+        )
+
+    set_clauses = [
+        (
+            f"{column} = COALESCE("
+            f"{column}, "
+            f"NULLIF(alternative_part_numbers->>%s, '')"
+            f")"
+        )
+        for source_key, column in ALTERNATIVE_SOURCE_COLUMNS.items()
+    ]
+    params = list(ALTERNATIVE_SOURCE_COLUMNS.keys())
+    conn.execute(
+        f"""
+        UPDATE part_xrefs
+        SET {", ".join(set_clauses)}
+        """,
+        params,
+    )
 
 
 class PartXrefStore:
@@ -59,22 +106,29 @@ class PartXrefStore:
         alternative_part_numbers: dict[str, str],
     ) -> bool:
         """Insert a xref entry. Returns True if inserted, False if already exists."""
+        columns = source_column_values(
+            brick_architect_part_number=brick_architect_part_number,
+            alternative_part_numbers=alternative_part_numbers,
+        )
+        column_names = ", ".join(columns.keys())
+        placeholders = ", ".join(["%s"] * len(columns))
+
         with self._connect() as conn:
             row = conn.execute(
-                """
+                f"""
                 INSERT INTO part_xrefs (
                     part_number,
-                    brick_architect_part_number,
-                    alternative_part_numbers
+                    alternative_part_numbers,
+                    {column_names}
                 )
-                VALUES (%s, %s, %s::jsonb)
+                VALUES (%s, %s::jsonb, {placeholders})
                 ON CONFLICT (part_number) DO NOTHING
                 RETURNING id
                 """,
                 (
                     part_number,
-                    brick_architect_part_number,
                     json.dumps(alternative_part_numbers),
+                    *columns.values(),
                 ),
             ).fetchone()
         inserted = row is not None
@@ -87,16 +141,17 @@ class PartXrefStore:
     def _ensure_schema(self) -> None:
         with self._connect() as conn:
             conn.execute(
-                """
+                f"""
                 CREATE TABLE IF NOT EXISTS part_xrefs (
                     id SERIAL PRIMARY KEY,
                     part_number VARCHAR(64) NOT NULL UNIQUE,
-                    brick_architect_part_number VARCHAR(64),
-                    alternative_part_numbers JSONB NOT NULL DEFAULT '{}',
+                    {_SOURCE_COLUMN_SQL},
+                    alternative_part_numbers JSONB NOT NULL DEFAULT '{{}}',
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
                 """
             )
+            migrate_source_columns(conn)
 
     @contextmanager
     def _connect(self) -> Iterator[psycopg.Connection]:

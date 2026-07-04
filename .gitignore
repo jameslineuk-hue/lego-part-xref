@@ -5,4 +5,5 @@ __pycache__/
 venv/
 part_xref/data/
 .DS_Store
+dist/
 
